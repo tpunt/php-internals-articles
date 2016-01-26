@@ -27,11 +27,12 @@ defined with the following semantics:
  1. The incrementation step will always be one
  2. Both operands must either be integers or floats
  3. If min = max, return a one element array consisting of min.
+
 (The above points will all be referenced in the final section, **Updating the
 Zend VM**, when we finally implement the above semantics.)
 
 If any of the above semantics are not satisfied, then an `Error` exception
-will be thrown. This may therefore occur if:
+will be thrown. This will therefore occur if:
  - either operand is not an integer or float
  - min > max
  - the range (max - min) is too large
@@ -69,7 +70,7 @@ mode. The code between the curly braces is C code that will be executed when
 `T_RANGE` token.
 
 Digression:
-> Since we're modifying the lexer, we will need Re2c to regenerate. This
+> Since we're modifying the lexer, we will need Re2c to regenerate it. This
 dependency is not needed for normal builds of PHP.
 
 Next, the `T_RANGE` identifier must be declared in the
@@ -122,13 +123,14 @@ the expression `3 + 4 * 2`, `*` has a higher precedence than `+`, and so it
 will be grouped as `3 + (4 * 2)`.
 > 
 > **Associativity** is how the operator will behave when chained. It determines
-the direction of grouping in a particular expression. For example, the ternary
-operator has (rather strangely) left-associativity, and so it will be grouped
-and executed from the left. Therefore, the following expression:
+whether the operator can be chained, and if so, then what direction it will be
+grouped from in a particular expression. For example, the ternary operator has
+(rather strangely) left-associativity, and so it will be grouped and executed
+from left to right. Therefore, the following expression:
 ```PHP
 1 ? 0 : 1 ? 0 : 1; // 1
 ```
-Will execute as follows:
+Will be executed as follows:
 ```PHP
 (1 ? 0 : 1) ? 0 : 1; // 1
 ```
@@ -144,11 +146,12 @@ following is invalid:
 1 < $a < 2;
 ```
 
-Let's make the operator non-associative since it will evaluate to an array,
-which will be useless as an input operand to itself (i.e. `1 |> 3 |> 5` would
-be non-sensical). We will also make it have the same precedence as the combined
-comparison operator (`T_SPACESHIP`). This is done by adding the `T_RANGE` token
-onto the end of the following line (line ~70):
+Since the range operator will evaluate to an array, having it as an input
+operand to itself would be rather useless (i.e. `1 |> 3 |> 5` would
+be non-sensical). So let's make the operator non-associative, and whilst we're
+at it, let's set it to have the same precedence as the combined comparison
+operator (`T_SPACESHIP`). This is done by adding the `T_RANGE` token onto the
+end of the following line (line ~70):
 ```
 %nonassoc T_IS_EQUAL T_IS_NOT_EQUAL T_IS_IDENTICAL T_IS_NOT_IDENTICAL T_SPACESHIP T_RANGE
 ```
@@ -172,9 +175,8 @@ left operand (**expr** T_RANGE expr) and `$3` references the right operand
 
 Next, we will need to define the `ZEND_AST_RANGE` constant for the AST. To do
 this, the [Zend/zend_ast.h](http://lxr.php.net/xref/PHP_7_0/Zend/zend_ast.h)
-file will need to be updated. To do this, simply add the `ZEND_AST_RANGE`
-constant under the list of two children nodes (I added it under
-`ZEND_AST_COALESCE`):
+file will need to be updated by simply adding the `ZEND_AST_RANGE` constant
+under the list of two children nodes (I added it under `ZEND_AST_COALESCE`):
 ```
 	ZEND_AST_RANGE,
 ```
@@ -184,37 +186,7 @@ Now executing our range operator will just cause the interpreter to hang:
 1 |> 2;
 ```
 
-Before we update the compilation stage, we need to update the AST pretty
-printer (that turns the AST back to code). It currently does not support our
-range operator - this can be seen by using it within `assert()`:
-```PHP
-assert(1 |> 2); // segfaults
-```
-
-Digression:
-> `assert()` uses the pretty printer to output the assertion expression in the
-error message upon failure (when it is not in string form). This only happens
-in PHP 7.
-
-To rectify this, we simply need to update the [Zend/zend_ast.c]
-(http://lxr.php.net/xref/PHP_7_0/Zend/zend_ast.c) file to turn our
-`ZEND_AST_RANGE` node into a string. We will firstly update the precedence
-table comment (line ~520) by specifying our new operator to have a priority of
-170 (this should match the zend_language_parser.y file):
-```
-*  170     non-associative == != === !== |>
-```
-
-Next, we need to insert a `case` statement in the `zend_ast_export_ex` function
-to handle `ZEND_AST_RANGE`  (just above `case ZEND_AST_GREATER`):
-```C
-case ZEND_AST_RANGE:                   BINARY_OP(" |> ",  170, 171, 171);
-case ZEND_AST_GREATER:                 BINARY_OP(" > ",   180, 181, 181);
-case ZEND_AST_GREATER_EQUAL:           BINARY_OP(" >= ",  180, 181, 181);
-```
-
-Now the pretty printer has been updated, it's time to update the compilation
-stage.
+It's time to update the compilation stage.
 
 
 ## Updating the Compilation Stage
@@ -251,11 +223,11 @@ void zend_compile_range(znode *result, zend_ast *ast) /* {{{ */
 /* }}} */
 ```
 
-We firstly start by dereferencing the left and right operands of the
+We start by firstly dereferencing the left and right operands of the
 `ZEND_AST_RANGE` node into the pointer variables `left_ast` and `right_ast`. We
-then define two `znode` variables, which will hold the result of compiling down
-the ASTs of both of the operands (this is the recursive part of traversing the
-AST and compiling its nodes into opcodes).
+then define two `znode` variables that will hold the result of compiling down
+the AST nodes for both of the operands (this is the recursive part of
+traversing the AST and compiling its nodes into opcodes).
 
 Next, we emit the `ZEND_RANGE` opcode with its two operands using the
 `zend_emit_op_tmp` function.
@@ -269,12 +241,12 @@ Opcodes are instructions that are executed by the Zend VM. They each have:
  - an op2 node (optional)
  - a result node (optional). This is usually used to store a temporary value of
  the opcode operation
- - an extended value (optional). This is an integer value used to differentiate
- between behaviours for overloaded opcodes
+ - an extended value (optional). This is an integer value that is used to
+ differentiate between behaviours for overloaded opcodes
 
 Digression:
 > The opcodes for a PHP script can be seen using either:
-> - PHPDBG : `sapi/phpdbg/phpdbg -np* script.php`
+> - PHPDBG: `sapi/phpdbg/phpdbg -np* program.php`
 > - Opcache
 > - [Vulcan Logic Disassembler (VLD) extension]
 (https://pecl.php.net/package/vld): `sapi/cli/php -dvld.active=1 program.php`
@@ -295,7 +267,7 @@ Opcode nodes (`znode_op` structures) can be of a number of different types:
  refcounted (as of PHP 7), but cannot hold an `IS_REFERENCE` zval (because
  temporary values cannot be used as references). They are denoted by `~n` in
  VLD (where **n** is an integer)
- - `IS_UNUSED` - Generally used to mark an op node as not used. Sometimes,
+ - `IS_UNUSED` - generally used to mark an op node as not used. Sometimes,
  however, data will be stored in the `znode_op.num` member to be used in the
  VM.
 
@@ -508,9 +480,9 @@ into the current hashtable bucket, and increments to the next bucket for the
 next iteration.
 
 Finally, the `ZEND_VM_NEXT_OPCODE_CHECK_EXCEPTION` macro (introduced in ZE3
-that replaces the separate `CHECK_EXCEPTION()` and `ZEND_VM_NEXT_OPCODE()`
-calls made in ZE2) checks whether an exception has occurred, and one hasn't,
-then it skips onto the next opcode.
+to replace the separate `CHECK_EXCEPTION()` and `ZEND_VM_NEXT_OPCODE()`
+calls made in ZE2) checks whether an exception has occurred. Provided an
+exception hasn't occurred, then the VM skips onto the next opcode.
 
 Let's now take a look at the `else if` block:
 ```C
@@ -606,10 +578,49 @@ array(2) {
 }
 ```
 
-# Conclusion
+Now our operator finally works! We're not quite done yet, though. We still need
+to update the AST pretty printer (that turns the AST back to code). It
+currently does not support our range operator - this can be seen by using it
+within `assert()`:
+```PHP
+assert(1 |> 2); // segfaults
+```
+
+Digression:
+> `assert()` uses the pretty printer to output the expression being asserted as
+part of its error message upon failure. This is only done when the asserted
+expression is not in string form (since the pretty printer would not be needed
+otherwise), and is something that is new to PHP 7.
+
+To rectify this, we simply need to update the [Zend/zend_ast.c]
+(http://lxr.php.net/xref/PHP_7_0/Zend/zend_ast.c) file to turn our
+`ZEND_AST_RANGE` node into a string. We will firstly update the precedence
+table comment (line ~520) by specifying our new operator to have a priority of
+170 (this should match the zend_language_parser.y file):
+```
+*  170     non-associative == != === !== |>
+```
+
+Next, we need to insert a `case` statement in the `zend_ast_export_ex` function
+to handle `ZEND_AST_RANGE` (just above `case ZEND_AST_GREATER`):
+```C
+case ZEND_AST_RANGE:                   BINARY_OP(" |> ",  170, 171, 171);
+case ZEND_AST_GREATER:                 BINARY_OP(" > ",   180, 181, 181);
+case ZEND_AST_GREATER_EQUAL:           BINARY_OP(" >= ",  180, 181, 181);
+```
+
+The pretty printer has been updated now and `assert()` works fine once again:
+```PHP
+assert(false && 1 |> 2); // Warning: assert(): assert(false && 1 |> 2) failed...
+```
+
+
+## Conclusion
 
 This article has covered a lot of ground, albeit thinly. It has shown the
 stages ZE goes through when running PHP scripts, how these stages
 interoperate with one-another, and how we can modify each of these stages to
-include a new operator into PHP. I hope to cover further topics (like creating
-new internal classes) in future articles.
+include a new operator into PHP. This article demonstrated just one possible
+implementation of the range operator in PHP - I hope to cover an alternative
+(and better) implementation, as well as other related topics in a future
+articles (like creating new internal classes).

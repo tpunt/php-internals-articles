@@ -296,8 +296,8 @@ var_dump(0b00_00_11_01); // int(13)
 It works!
 
 Have a go at rewriting the other `LNUM`, `HNUM`, and `DNUM` definitions (they
-are similiar, if not simpler, than `BNUM`). To see what they look like, check
-out the [changed files of my PR](https://github.com/php/php-src/pull/1699/files).
+are similiar to, if not simpler than `BNUM`). To see what they look like,
+check out the [changed files of my PR](https://github.com/php/php-src/pull/1699/files).
 
 ## Conclusion
 
