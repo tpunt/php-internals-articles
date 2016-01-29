@@ -284,7 +284,7 @@ Now we will need to update the Zend VM to handle the execution of our new
 opcode. This will involve updating the **Zend/zend_vm_def.h** file by adding
 the following code (at the bottom will do):
 ```C
-ZEND_VM_HANDLER(182, ZEND_RANGE, CONST|TMPVAR|CV, CONST|TMPVAR|CV)
+ZEND_VM_HANDLER(182, ZEND_RANGE, CONST|TMP|VAR|CV, CONST|TMP|VAR|CV)
 {
 	USE_OPLINE
 	zend_free_op free_op1, free_op2;
@@ -329,9 +329,9 @@ The `ZEND_VM_HANDLER` pseudo-macro contains each opcode's definition. It can
 have 5 parameters:
  1. The opcode number (182)
  2. The opcode name (ZEND_RANGE)
- 3. The valid left operand types (CONST|TMPVAR|CV) (see `$vm_op_decode` in
+ 3. The valid left operand types (CONST|TMP|VAR|CV) (see `$vm_op_decode` in
 **Zend/zend_vm_gen.php** for all types)
- 4. The valid right operand types (CONST|TMPVAR|CV) (ditto)
+ 4. The valid right operand types (CONST|TMP|VAR|CV) (ditto)
  5. An optional flag holding the extended value for overloaded opcodes (see
 `$vm_ext_decode` in **Zend/zend_vm_gen.php** for all types)
 
@@ -340,8 +340,11 @@ From our above definitions of the types, we can see that:
 // CONST enables for
 1 |> 5.0;
 
-// TMPVAR enables for
-$cmplx->var |> (1 + 3);
+// TMP enables for
+(2**2) |> (1 + 3);
+
+// VAR enables for
+$cmplx->var |> $var[1];
 
 // CV enables for
 $a |> $b;
