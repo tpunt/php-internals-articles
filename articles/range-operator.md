@@ -1,4 +1,4 @@
-# Adding a Range Operator into PHP
+# Implementing a Range Operator into PHP
 
 ## Introduction
 
