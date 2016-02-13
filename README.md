@@ -15,8 +15,9 @@ the [PHP Internals Book](http://www.phpinternalsbook.com/) first.
 
 ## Article Index
 
- - [Implementing a Range Operator in PHP]
- (https://github.com/tpunt/php-internals-articles/blob/master/articles/range-operator.md)
+ - Range Operator:
+   - [Part 1] [Implementing a Range Operator in PHP](https://github.com/tpunt/php-internals-articles/blob/master/articles/range-operator.md)
+   - [Part 2] [A Reimplementation of the Range Operator](https://github.com/tpunt/php-internals-articles/blob/master/articles/range-operator-2.md)
  - [Implementing a Digit Separator in PHP]
  (https://github.com/tpunt/php-internals-articles/blob/master/articles/digit-separator.md)
 
