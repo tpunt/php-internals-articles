@@ -1,3 +1,5 @@
+Update: I will no longer be posting articles here. Instead, checkout the [PHPInternals.net](https://phpinternals.net) website for new content around PHP's internals.
+
 # PHP Internals Articles
 
 This repository contains articles that will aim to provide an introduction into
